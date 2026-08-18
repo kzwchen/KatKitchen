@@ -210,3 +210,9 @@ class ListSummary(BaseModel):
     finalized_at: Optional[datetime]
     item_count: int
     checked_count: int
+
+
+class SuggestionOut(BaseModel):
+    ingredient_id: Optional[int]
+    name: str
+    times_bought: int

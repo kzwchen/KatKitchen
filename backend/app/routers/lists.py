@@ -17,8 +17,16 @@ from app.models import (
     ShoppingList,
     ShoppingListItem,
 )
-from app.schemas import ListItemIn, ListItemOut, ListItemPatch, ListOut, ListSummary
+from app.schemas import (
+    ListItemIn,
+    ListItemOut,
+    ListItemPatch,
+    ListOut,
+    ListSummary,
+    SuggestionOut,
+)
 from app.services.list_service import generate
+from app.services.suggestions import suggest
 from app.services.units import CONVERSIONS, UnitError, format_display, to_canonical
 
 router = APIRouter(prefix="/api", tags=["lists"])
@@ -244,3 +252,11 @@ def list_history(session: Session = Depends(get_session)) -> list[ListSummary]:
 @router.get("/lists/{list_id}", response_model=ListOut)
 def read_list_by_id(list_id: int, session: Session = Depends(get_session)) -> ListOut:
     return _list_out(session, _list_or_404(session, list_id))
+
+
+@router.get("/lists/{list_id}/suggestions", response_model=list[SuggestionOut])
+def read_suggestions(
+    list_id: int, session: Session = Depends(get_session)
+) -> list[SuggestionOut]:
+    _list_or_404(session, list_id)
+    return suggest(session, list_id)
