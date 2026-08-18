@@ -75,8 +75,9 @@ def generate(session: Session, plan_id: int) -> ShoppingList:
     if shopping_list is None:
         shopping_list = ShoppingList(plan_id=plan_id)
         session.add(shopping_list)
-        session.commit()
-        session.refresh(shopping_list)
+        # flush (not commit) so this is part of the same transaction as the
+        # rest of generate(): a failure below leaves nothing persisted.
+        session.flush()
 
     meals = _cook_meals(session, plan_id)
     draft = build_draft(meals, _recipe_refs(session, meals), _ingredient_refs(session))

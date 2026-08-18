@@ -27,7 +27,7 @@ from app.schemas import (
 )
 from app.services.list_service import generate
 from app.services.suggestions import suggest
-from app.services.units import CONVERSIONS, UnitError, format_display, to_canonical
+from app.services.units import UnitError, format_display, to_canonical
 
 router = APIRouter(prefix="/api", tags=["lists"])
 
@@ -179,16 +179,29 @@ def update_item(
         raise AppError(404, "item_not_found", f"No item {item_id} on list {list_id}")
 
     changes = payload.model_dump(exclude_unset=True)
-    if "quantity" in changes and item.ingredient_id is not None:
+    if item.ingredient_id is not None and (
+        "quantity" in changes or "display_unit" in changes
+    ):
         ingredient = session.get(Ingredient, item.ingredient_id)
-        unit = changes.get("display_unit") or item.display_unit or ingredient.unit.value
-        try:
-            canonical = to_canonical(changes["quantity"], unit, ingredient.unit.value)
-        except UnitError as exc:
-            raise AppError(422, "unit_mismatch", str(exc)) from None
-        changes["quantity"] = canonical
-        changes["display_quantity"] = round(canonical / CONVERSIONS[unit][1], 4)
-        changes["display_unit"] = unit
+        if "quantity" in changes:
+            unit = changes.get("display_unit") or item.display_unit or ingredient.unit.value
+            try:
+                canonical = to_canonical(changes["quantity"], unit, ingredient.unit.value)
+            except UnitError as exc:
+                raise AppError(422, "unit_mismatch", str(exc)) from None
+        else:
+            # display_unit changed on its own: the canonical amount is
+            # unchanged, but the display pair must be recomputed so it stays
+            # consistent (see Finding D) rather than pairing a stale
+            # display_quantity with a freshly-changed display_unit.
+            canonical = item.quantity
+        if canonical is not None:
+            changes["quantity"] = canonical
+            # Use the same formatting rule as add_item so the two code paths
+            # agree on how a canonical quantity is shown.
+            changes["display_quantity"], changes["display_unit"] = format_display(
+                canonical, ingredient.unit.value
+            )
 
     for key, value in changes.items():
         setattr(item, key, value)

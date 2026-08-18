@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.errors import AppError
-from app.models import Ingredient, Recipe, RecipeIngredient
+from app.models import Ingredient, Recipe, RecipeIngredient, ShoppingListItem
 from app.schemas import IngredientIn, IngredientOut, IngredientPatch
 
 router = APIRouter(prefix="/api/ingredients", tags=["ingredients"])
@@ -52,6 +52,17 @@ def _referencing_recipe_names(session: Session, ingredient_id: int) -> list[str]
             .where(RecipeIngredient.ingredient_id == ingredient_id)
             .distinct()
         )
+    )
+
+
+def _referenced_by_shopping_list_item(session: Session, ingredient_id: int) -> bool:
+    return (
+        session.exec(
+            select(ShoppingListItem.id).where(
+                ShoppingListItem.ingredient_id == ingredient_id
+            )
+        ).first()
+        is not None
     )
 
 
@@ -142,6 +153,12 @@ def delete_ingredient(
             409,
             "ingredient_in_use",
             f"Can't delete {ingredient.name}: used by {', '.join(recipes)}",
+        )
+    if _referenced_by_shopping_list_item(session, ingredient_id):
+        raise AppError(
+            409,
+            "ingredient_in_use",
+            f"Can't delete {ingredient.name}: it's on a shopping list",
         )
     session.delete(ingredient)
     session.commit()

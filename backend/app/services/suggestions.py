@@ -50,6 +50,10 @@ def suggest(session: Session, list_id: int) -> list[SuggestionOut]:
             key = item_key(item.ingredient_id, item.custom_name)
             if item.ingredient_id is not None:
                 ingredient = session.get(Ingredient, item.ingredient_id)
+                if ingredient is None:
+                    # Defensive: FK constraints should make this unreachable,
+                    # but never dereference a missing ingredient.
+                    continue
                 keys_this_week[key] = (item.ingredient_id, ingredient.name)
             else:
                 keys_this_week[key] = (None, (item.custom_name or "").strip())

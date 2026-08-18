@@ -15,6 +15,7 @@ from app.models import (
     PlannedMeal,
     Recipe,
     RecipeIngredient,
+    ShoppingList,
     ShoppingListItem,
 )
 from app.services.list_service import generate
@@ -59,8 +60,15 @@ def world(session):
     session.commit()
     session.add(
         PlannedMeal(
+            # servings_to_make is set here even though the plans router
+            # always nulls it for leftovers (see app/routers/plans.py). That
+            # is deliberate: it makes this row a live trap for the `kind`
+            # filter in `_cook_meals`. If that filter is ever dropped, this
+            # meal contributes a *nonzero* batch instead of silently no-op'ing
+            # via `servings_to_make or 0`, so the test below actually notices.
             plan_id=plan.id, day=1, slot=MealSlot.LUNCH, recipe_id=chili.id,
-            kind=MealKind.LEFTOVERS, servings_eaten=2, source_meal_id=cook.id,
+            kind=MealKind.LEFTOVERS, servings_to_make=4, servings_eaten=2,
+            source_meal_id=cook.id,
         )
     )
     session.commit()
@@ -160,6 +168,23 @@ def test_regenerating_drops_a_recipe_item_that_no_longer_applies(session, world)
 
     regenerated = generate(session, world["plan"].id)
     assert regenerated.items == []
+
+
+def test_generate_is_atomic_when_a_later_step_fails(session, world, monkeypatch):
+    # Simulate a failure that happens after the ShoppingList row would be
+    # created but before generate() finishes. If the initial row creation
+    # commits on its own (rather than merely flushing), that empty row is
+    # left behind as an orphan even though the whole call raised.
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("app.services.list_service.build_draft", boom)
+
+    with pytest.raises(RuntimeError):
+        generate(session, world["plan"].id)
+
+    session.rollback()
+    assert session.exec(select(ShoppingList)).all() == []
 
 
 def test_regenerating_keeps_a_manual_item_even_with_no_meals(session, world):

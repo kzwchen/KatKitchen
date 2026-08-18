@@ -97,6 +97,26 @@ def test_delete_is_refused_when_a_recipe_uses_it(client):
     assert "Chili" in response.json()["detail"]
 
 
+def test_delete_is_refused_when_a_shopping_list_item_references_it(client):
+    # Investigation: ShoppingListItem.ingredient_id is a real FK and
+    # PRAGMA foreign_keys=ON is enforced, so deleting an ingredient that a
+    # shopping-list item still points at raises a raw IntegrityError deep in
+    # SQLAlchemy/sqlite - not a dangling reference, and (before this fix)
+    # not a clean 409 either: it surfaces as an unhandled 500.
+    ingredient_id = create_ingredient(client).json()["id"]
+    plan = client.post("/api/plans", json={"week_start": "2026-08-17"}).json()
+    list_id = client.post(f"/api/plans/{plan['id']}/list").json()["id"]
+    client.post(
+        f"/api/lists/{list_id}/items",
+        json={"ingredient_id": ingredient_id, "quantity": 1, "display_unit": "count"},
+    )
+    response = client.delete(f"/api/ingredients/{ingredient_id}")
+    assert response.status_code == 409
+    assert response.json()["code"] == "ingredient_in_use"
+    # The ingredient must genuinely survive - not a dangling reference.
+    assert client.get(f"/api/ingredients/{ingredient_id}").status_code == 200
+
+
 def test_changing_unit_is_refused_when_a_recipe_uses_it(client):
     ingredient_id = create_ingredient(
         client, name="Flour", category="dry_goods", unit="g"

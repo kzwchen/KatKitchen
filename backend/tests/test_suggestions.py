@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import text
 
 WEEKS = [
     "2026-06-01",
@@ -128,6 +129,45 @@ def test_ingredient_backed_manual_items_are_suggested_by_ingredient(client, onio
     result = suggestions(client, current)
     assert result[0]["ingredient_id"] == onion["id"]
     assert result[0]["name"] == "Onion"
+
+
+def test_duplicate_items_in_one_week_count_once_not_per_row(client):
+    # Week 0 buys "Coffee" twice (two separate manual rows, same normalized
+    # name). Week 1 buys it once. Correct per-week dedup: 1 + 1 = 2
+    # appearances, below the threshold of 3, so NOT suggested. A flat
+    # per-row counter would instead see 2 + 1 = 3 rows and wrongly suggest
+    # it - which is exactly the bug `keys_this_week` exists to prevent.
+    finished_week(client, WEEKS[0], ["Coffee", "Coffee"])
+    finished_week(client, WEEKS[1], ["Coffee"])
+    current = open_week(client, WEEKS[2])
+    assert suggestions(client, current) == []
+
+
+def test_a_dangling_ingredient_reference_does_not_crash_suggestions(client, session):
+    # The API itself can no longer create a dangling ShoppingListItem
+    # reference (Finding G's delete_ingredient fix blocks it), but this
+    # proves the defensive null check in suggestions.py holds even if one
+    # existed - e.g. from data created before that fix existed.
+    onion = client.post(
+        "/api/ingredients",
+        json={"name": "Onion", "category": "produce", "unit": "count"},
+    ).json()
+    plan = client.post("/api/plans", json={"week_start": WEEKS[0]}).json()
+    list_id = client.post(f"/api/plans/{plan['id']}/list").json()["id"]
+    client.post(
+        f"/api/lists/{list_id}/items",
+        json={"ingredient_id": onion["id"], "quantity": 1, "display_unit": "count"},
+    )
+    client.post(f"/api/lists/{list_id}/finalize")
+
+    # Bypass the FK constraint (same connection as `client`, via StaticPool)
+    # to simulate a pre-existing dangling reference.
+    session.execute(text("PRAGMA foreign_keys=OFF"))
+    session.execute(text("DELETE FROM ingredient WHERE id = :id"), {"id": onion["id"]})
+    session.commit()
+
+    current = open_week(client, WEEKS[1])
+    assert suggestions(client, current) == []
 
 
 def test_no_history_produces_no_suggestions(client):
