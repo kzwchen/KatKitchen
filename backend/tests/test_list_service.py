@@ -1,0 +1,183 @@
+from datetime import date
+
+import pytest
+from sqlmodel import select
+
+from app.models import (
+    CanonicalUnit,
+    Category,
+    Ingredient,
+    ItemSection,
+    ItemSource,
+    MealKind,
+    MealPlan,
+    MealSlot,
+    PlannedMeal,
+    Recipe,
+    RecipeIngredient,
+    ShoppingListItem,
+)
+from app.services.list_service import generate
+
+
+@pytest.fixture
+def world(session):
+    """A plan with chili (Mon dinner, cook) and its leftovers (Tue lunch)."""
+    onion = Ingredient(name="Onion", category=Category.PRODUCE, unit=CanonicalUnit.COUNT)
+    cumin = Ingredient(
+        name="Cumin", category=Category.SEASONING, unit=CanonicalUnit.ML, is_staple=True
+    )
+    session.add(onion)
+    session.add(cumin)
+    session.commit()
+
+    chili = Recipe(name="Chili", serves=4, instructions="Simmer.")
+    session.add(chili)
+    session.commit()
+    session.add(
+        RecipeIngredient(
+            recipe_id=chili.id, ingredient_id=onion.id, quantity=2.0,
+            display_unit="count", position=0,
+        )
+    )
+    session.add(
+        RecipeIngredient(
+            recipe_id=chili.id, ingredient_id=cumin.id, quantity=5.0,
+            display_unit="tsp", position=1,
+        )
+    )
+
+    plan = MealPlan(week_start=date(2026, 8, 17))
+    session.add(plan)
+    session.commit()
+
+    cook = PlannedMeal(
+        plan_id=plan.id, day=0, slot=MealSlot.DINNER, recipe_id=chili.id,
+        kind=MealKind.COOK, servings_to_make=4, servings_eaten=2,
+    )
+    session.add(cook)
+    session.commit()
+    session.add(
+        PlannedMeal(
+            plan_id=plan.id, day=1, slot=MealSlot.LUNCH, recipe_id=chili.id,
+            kind=MealKind.LEFTOVERS, servings_eaten=2, source_meal_id=cook.id,
+        )
+    )
+    session.commit()
+    return {"plan": plan, "onion": onion, "cumin": cumin, "chili": chili, "cook": cook}
+
+
+def items_by_ingredient(shopping_list):
+    return {item.ingredient_id: item for item in shopping_list.items}
+
+
+def test_generate_creates_a_list_from_cook_meals(session, world):
+    shopping_list = generate(session, world["plan"].id)
+    items = items_by_ingredient(shopping_list)
+    assert items[world["onion"].id].quantity == 2.0
+    assert items[world["onion"].id].section is ItemSection.BUY
+    assert items[world["onion"].id].source is ItemSource.RECIPE
+
+
+def test_leftover_meals_do_not_add_ingredients(session, world):
+    # The plan has one cook (4 servings) and one leftovers slot. If leftovers
+    # counted, the onion total would be 4 rather than 2.
+    shopping_list = generate(session, world["plan"].id)
+    assert items_by_ingredient(shopping_list)[world["onion"].id].quantity == 2.0
+
+
+def test_staples_land_in_the_check_section(session, world):
+    shopping_list = generate(session, world["plan"].id)
+    cumin_item = items_by_ingredient(shopping_list)[world["cumin"].id]
+    assert cumin_item.section is ItemSection.STAPLE_CHECK
+    assert cumin_item.quantity is None
+    assert cumin_item.contributions[0]["recipe_name"] == "Chili"
+
+
+def test_regenerating_is_idempotent(session, world):
+    first = generate(session, world["plan"].id)
+    first_id = first.id
+    count = len(first.items)
+    second = generate(session, world["plan"].id)
+    assert second.id == first_id
+    assert len(second.items) == count
+
+
+def test_regenerating_preserves_manual_items(session, world):
+    shopping_list = generate(session, world["plan"].id)
+    session.add(
+        ShoppingListItem(
+            list_id=shopping_list.id, custom_name="Paper towels",
+            source=ItemSource.MANUAL, section=ItemSection.BUY, checked=True,
+        )
+    )
+    session.commit()
+
+    regenerated = generate(session, world["plan"].id)
+    manual = [i for i in regenerated.items if i.source is ItemSource.MANUAL]
+    assert len(manual) == 1
+    assert manual[0].custom_name == "Paper towels"
+    assert manual[0].checked is True
+
+
+def test_regenerating_preserves_checked_state_across_a_quantity_change(session, world):
+    shopping_list = generate(session, world["plan"].id)
+    onion_item = items_by_ingredient(shopping_list)[world["onion"].id]
+    onion_item.checked = True
+    onion_item.note = "the big ones"
+    session.add(onion_item)
+    session.commit()
+
+    world["cook"].servings_to_make = 8
+    session.add(world["cook"])
+    session.commit()
+
+    regenerated = generate(session, world["plan"].id)
+    updated = items_by_ingredient(regenerated)[world["onion"].id]
+    assert updated.quantity == 4.0
+    assert updated.checked is True
+    assert updated.note == "the big ones"
+
+
+def test_regenerating_drops_a_recipe_item_that_no_longer_applies(session, world):
+    shopping_list = generate(session, world["plan"].id)
+    onion_item = items_by_ingredient(shopping_list)[world["onion"].id]
+    onion_item.checked = True
+    session.add(onion_item)
+    session.commit()
+
+    # PlannedMeal.source_meal_id is a plain FK column with no ORM
+    # Relationship, so SQLAlchemy's unit-of-work cannot topologically sort a
+    # bulk delete of self-referencing rows; with FK enforcement on, deleting
+    # the cooked meal before the leftover meal that references it raises an
+    # IntegrityError. Delete dependents (leftovers) first.
+    for meal in sorted(
+        session.exec(select(PlannedMeal)).all(),
+        key=lambda m: m.source_meal_id is None,
+    ):
+        session.delete(meal)
+        session.commit()
+
+    regenerated = generate(session, world["plan"].id)
+    assert regenerated.items == []
+
+
+def test_regenerating_keeps_a_manual_item_even_with_no_meals(session, world):
+    shopping_list = generate(session, world["plan"].id)
+    session.add(
+        ShoppingListItem(
+            list_id=shopping_list.id, custom_name="Coffee",
+            source=ItemSource.MANUAL, section=ItemSection.BUY,
+        )
+    )
+    session.commit()
+    # See the comment above about self-referencing FK delete order.
+    for meal in sorted(
+        session.exec(select(PlannedMeal)).all(),
+        key=lambda m: m.source_meal_id is None,
+    ):
+        session.delete(meal)
+        session.commit()
+
+    regenerated = generate(session, world["plan"].id)
+    assert [i.custom_name for i in regenerated.items] == ["Coffee"]

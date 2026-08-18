@@ -13,7 +13,7 @@ from app.errors import (
     http_exception_handler,
     validation_exception_handler,
 )
-from app.routers import ingredients, plans, recipes, settings
+from app.routers import ingredients, lists, plans, recipes, settings
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 app.include_router(ingredients.router)
+app.include_router(lists.router)
 app.include_router(plans.router)
 app.include_router(recipes.router)
 app.include_router(settings.router)

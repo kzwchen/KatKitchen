@@ -155,3 +155,58 @@ class PlanOut(BaseModel):
     status: PlanStatus
     meals: list[MealOut]
     warnings: list[SlotWarning]
+
+
+from datetime import datetime
+from typing import Any
+
+from app.models import ItemSection, ItemSource
+
+
+class ListItemIn(BaseModel):
+    custom_name: Optional[str] = None
+    ingredient_id: Optional[int] = None
+    quantity: Optional[float] = Field(default=None, gt=0)
+    display_unit: Optional[str] = None
+    note: Optional[str] = None
+
+
+class ListItemPatch(BaseModel):
+    checked: Optional[bool] = None
+    quantity: Optional[float] = Field(default=None, gt=0)
+    display_unit: Optional[str] = None
+    note: Optional[str] = None
+    custom_name: Optional[str] = None
+
+
+class ListItemOut(BaseModel):
+    id: int
+    ingredient_id: Optional[int]
+    name: str
+    category: Optional[Category]
+    quantity: Optional[float]
+    display_quantity: Optional[float]
+    display_unit: Optional[str]
+    source: ItemSource
+    section: ItemSection
+    checked: bool
+    note: Optional[str]
+    contributions: list[dict[str, Any]]
+
+
+class ListOut(BaseModel):
+    id: int
+    plan_id: int
+    week_start: date
+    generated_at: datetime
+    finalized_at: Optional[datetime]
+    items: list[ListItemOut]
+
+
+class ListSummary(BaseModel):
+    id: int
+    plan_id: int
+    week_start: date
+    finalized_at: Optional[datetime]
+    item_count: int
+    checked_count: int
