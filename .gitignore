@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Local database
+data/*.db
+data/*.db-journal
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
