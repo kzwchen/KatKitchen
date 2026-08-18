@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.db import init_db
 from app.errors import AppError, app_error_handler
-from app.routers import ingredients, settings
+from app.routers import ingredients, recipes, settings
 
 
 @asynccontextmanager
@@ -19,6 +19,7 @@ app = FastAPI(title="RatKitchen", lifespan=lifespan)
 app.add_exception_handler(AppError, app_error_handler)
 
 app.include_router(ingredients.router)
+app.include_router(recipes.router)
 app.include_router(settings.router)
 
 

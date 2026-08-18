@@ -1,10 +1,3 @@
-import pytest
-
-RECIPES_LAND_IN_TASK_5 = pytest.mark.xfail(
-    reason="recipes router lands in Task 5", strict=True
-)
-
-
 def create_ingredient(client, **overrides):
     payload = {"name": "Onion", "category": "produce", "unit": "count", "is_staple": False}
     payload.update(overrides)
@@ -95,7 +88,6 @@ def test_changing_unit_is_allowed_while_unused(client):
     assert response.json()["unit"] == "g"
 
 
-@RECIPES_LAND_IN_TASK_5
 def test_delete_is_refused_when_a_recipe_uses_it(client):
     ingredient_id = create_ingredient(client).json()["id"]
     add_recipe(client, ingredient_id)
@@ -105,7 +97,6 @@ def test_delete_is_refused_when_a_recipe_uses_it(client):
     assert "Chili" in response.json()["detail"]
 
 
-@RECIPES_LAND_IN_TASK_5
 def test_changing_unit_is_refused_when_a_recipe_uses_it(client):
     ingredient_id = create_ingredient(
         client, name="Flour", category="dry_goods", unit="g"
@@ -116,7 +107,6 @@ def test_changing_unit_is_refused_when_a_recipe_uses_it(client):
     assert response.json()["code"] == "unit_locked"
 
 
-@RECIPES_LAND_IN_TASK_5
 def test_usage_count_reflects_recipes(client):
     ingredient_id = create_ingredient(client).json()["id"]
     add_recipe(client, ingredient_id)
