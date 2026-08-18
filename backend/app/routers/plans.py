@@ -55,6 +55,22 @@ def _recipe_or_422(session: Session, recipe_id: int) -> Recipe:
     return recipe
 
 
+def _dependents(session: Session, meal_id: int) -> list[PlannedMeal]:
+    """Leftover meals that point at meal_id as their source."""
+    return session.exec(
+        select(PlannedMeal).where(PlannedMeal.source_meal_id == meal_id)
+    ).all()
+
+
+def _raise_if_meal_has_leftovers(session: Session, meal_id: int) -> None:
+    if _dependents(session, meal_id):
+        raise AppError(
+            409,
+            "meal_has_leftovers",
+            "Remove the leftover slots that point at this meal first",
+        )
+
+
 def _meal_out(session: Session, meal: PlannedMeal) -> MealOut:
     recipe = session.get(Recipe, meal.recipe_id)
     return MealOut(
@@ -250,6 +266,13 @@ def update_meal(
     recipe_id = changes.get("recipe_id", meal.recipe_id)
     source_meal_id = changes.get("source_meal_id", meal.source_meal_id)
 
+    # A cook meal that other slots point to as their source must stay a cook
+    # of the same recipe, or those leftovers silently stop matching reality.
+    if meal.kind is MealKind.COOK and (
+        kind is not MealKind.COOK or recipe_id != meal.recipe_id
+    ):
+        _raise_if_meal_has_leftovers(session, meal_id)
+
     if kind is MealKind.LEFTOVERS:
         _validate_leftovers(
             session, meal.plan, meal.day, meal.slot, recipe_id, source_meal_id
@@ -257,7 +280,10 @@ def update_meal(
         changes["servings_to_make"] = None
     else:
         changes["source_meal_id"] = None
-        if changes.get("servings_to_make") is None and meal.servings_to_make is None:
+        effective_servings_to_make = changes.get(
+            "servings_to_make", meal.servings_to_make
+        )
+        if effective_servings_to_make is None:
             changes["servings_to_make"] = _recipe_or_422(session, recipe_id).serves
 
     for key, value in changes.items():
@@ -271,15 +297,7 @@ def update_meal(
 @router.delete("/meals/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_meal(meal_id: int, session: Session = Depends(get_session)) -> Response:
     meal = _meal_or_404(session, meal_id)
-    dependents = session.exec(
-        select(PlannedMeal).where(PlannedMeal.source_meal_id == meal_id)
-    ).all()
-    if dependents:
-        raise AppError(
-            409,
-            "meal_has_leftovers",
-            "Remove the leftover slots that point at this meal first",
-        )
+    _raise_if_meal_has_leftovers(session, meal_id)
     session.delete(meal)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -212,6 +212,119 @@ def test_patching_servings_to_make_clears_the_warning(client, plan, chili):
     assert client.get(f"/api/plans/{plan['id']}").json()["warnings"] == []
 
 
+def test_patching_servings_to_make_to_explicit_null_falls_back_to_recipe_serves(
+    client, plan, chili
+):
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+    # Move it away from the recipe default first so a stale "still not None" read
+    # of the old value can't accidentally make this test pass.
+    bumped = client.patch(f"/api/meals/{cook['id']}", json={"servings_to_make": 6})
+    assert bumped.json()["servings_to_make"] == 6
+
+    response = client.patch(f"/api/meals/{cook['id']}", json={"servings_to_make": None})
+    assert response.status_code == 200
+    assert response.json()["servings_to_make"] == chili["serves"]
+
+
+def test_patching_kind_to_leftovers_is_refused_when_dependents_exist(client, plan, chili):
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+    add_meal(
+        client,
+        plan["id"],
+        day=1,
+        slot="lunch",
+        recipe_id=chili["id"],
+        kind="leftovers",
+        source_meal_id=cook["id"],
+    )
+    response = client.patch(f"/api/meals/{cook['id']}", json={"kind": "leftovers"})
+    assert response.status_code == 409
+    assert response.json()["code"] == "meal_has_leftovers"
+
+
+def test_patching_recipe_id_is_refused_when_dependents_exist(client, plan, chili, onion):
+    soup = client.post(
+        "/api/recipes",
+        json={
+            "name": "Soup",
+            "serves": 2,
+            "instructions": "Boil.",
+            "lines": [
+                {"ingredient_id": onion["id"], "quantity": 1, "display_unit": "count"}
+            ],
+        },
+    ).json()
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+    add_meal(
+        client,
+        plan["id"],
+        day=1,
+        slot="lunch",
+        recipe_id=chili["id"],
+        kind="leftovers",
+        source_meal_id=cook["id"],
+    )
+    response = client.patch(f"/api/meals/{cook['id']}", json={"recipe_id": soup["id"]})
+    assert response.status_code == 409
+    assert response.json()["code"] == "meal_has_leftovers"
+
+
+def test_patching_kind_to_leftovers_succeeds_without_dependents(client, plan, chili):
+    earlier_cook = add_meal(client, plan["id"], day=0, slot="breakfast", recipe_id=chili["id"]).json()
+    other_cook = add_meal(
+        client, plan["id"], day=1, slot="lunch", recipe_id=chili["id"]
+    ).json()
+
+    response = client.patch(
+        f"/api/meals/{other_cook['id']}",
+        json={"kind": "leftovers", "source_meal_id": earlier_cook["id"]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "leftovers"
+    assert body["servings_to_make"] is None
+    assert body["source_meal_id"] == earlier_cook["id"]
+
+
+def test_patching_recipe_id_succeeds_without_dependents(client, plan, chili, onion):
+    soup = client.post(
+        "/api/recipes",
+        json={
+            "name": "Soup",
+            "serves": 2,
+            "instructions": "Boil.",
+            "lines": [
+                {"ingredient_id": onion["id"], "quantity": 1, "display_unit": "count"}
+            ],
+        },
+    ).json()
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+
+    response = client.patch(f"/api/meals/{cook['id']}", json={"recipe_id": soup["id"]})
+    assert response.status_code == 200
+    assert response.json()["recipe_id"] == soup["id"]
+
+
+def test_patching_servings_to_make_to_a_number_still_updates_and_clears_the_warning(
+    client, plan, chili
+):
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+    for day, slot in ((1, "lunch"), (2, "lunch")):
+        add_meal(
+            client,
+            plan["id"],
+            day=day,
+            slot=slot,
+            recipe_id=chili["id"],
+            kind="leftovers",
+            source_meal_id=cook["id"],
+        )
+    response = client.patch(f"/api/meals/{cook['id']}", json={"servings_to_make": 6})
+    assert response.status_code == 200
+    assert response.json()["servings_to_make"] == 6
+    assert client.get(f"/api/plans/{plan['id']}").json()["warnings"] == []
+
+
 def test_deleting_a_cook_meal_with_leftovers_is_refused(client, plan, chili):
     cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
     add_meal(
