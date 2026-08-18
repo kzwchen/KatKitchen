@@ -1,9 +1,5 @@
 import pytest
 
-PLANS_LAND_IN_TASK_6 = pytest.mark.xfail(
-    reason="plans router lands in Task 6", strict=True
-)
-
 
 @pytest.fixture
 def onion(client):
@@ -129,7 +125,6 @@ def test_delete_removes_an_unplanned_recipe(client, onion):
     assert client.get(f"/api/recipes/{recipe_id}").status_code == 404
 
 
-@PLANS_LAND_IN_TASK_6
 def test_delete_is_refused_while_an_active_plan_uses_it(client, onion):
     recipe_id = make_recipe(
         client, [{"ingredient_id": onion["id"], "quantity": 2, "display_unit": "count"}]

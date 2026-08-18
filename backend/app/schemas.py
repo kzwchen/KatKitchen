@@ -94,3 +94,64 @@ class RecipeSummary(BaseModel):
     name: str
     serves: int
     line_count: int
+
+
+from datetime import date
+
+from app.models import MealKind, MealSlot, PlanStatus
+
+
+class PlanIn(BaseModel):
+    week_start: date
+
+
+class PlanSummary(BaseModel):
+    id: int
+    week_start: date
+    status: PlanStatus
+    meal_count: int
+    has_list: bool
+
+
+class MealIn(BaseModel):
+    day: int = Field(ge=0, le=6)
+    slot: MealSlot
+    recipe_id: int
+    kind: MealKind = MealKind.COOK
+    servings_to_make: Optional[int] = Field(default=None, ge=1)
+    servings_eaten: Optional[int] = Field(default=None, ge=1)
+    source_meal_id: Optional[int] = None
+
+
+class MealPatch(BaseModel):
+    recipe_id: Optional[int] = None
+    kind: Optional[MealKind] = None
+    servings_to_make: Optional[int] = Field(default=None, ge=1)
+    servings_eaten: Optional[int] = Field(default=None, ge=1)
+    source_meal_id: Optional[int] = None
+
+
+class MealOut(BaseModel):
+    id: int
+    day: int
+    slot: MealSlot
+    recipe_id: int
+    recipe_name: str
+    recipe_serves: int
+    kind: MealKind
+    servings_to_make: Optional[int]
+    servings_eaten: int
+    source_meal_id: Optional[int]
+
+
+class SlotWarning(BaseModel):
+    meal_id: int
+    message: str
+
+
+class PlanOut(BaseModel):
+    id: int
+    week_start: date
+    status: PlanStatus
+    meals: list[MealOut]
+    warnings: list[SlotWarning]
