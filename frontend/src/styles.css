@@ -86,3 +86,16 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9em; }
 .slot-picker button:hover { background: #eef3ef; }
 
 .warnings { list-style: none; padding: 0; margin-top: 16px; }
+
+.aisle { margin-bottom: 20px; }
+.aisle h2 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.items { list-style: none; padding: 0; margin: 8px 0 0; }
+.item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+.item label { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+.item--checked .item__name { text-decoration: line-through; color: var(--muted); }
+.item__amount { min-width: 72px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.manual-add { display: flex; gap: 8px; margin-top: 24px; }
+.manual-add input { width: 320px; }
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.print-only { display: none; }

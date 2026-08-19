@@ -4,6 +4,7 @@ import { IngredientsPage } from './pages/Ingredients/IngredientsPage'
 import { RecipesPage } from './pages/Recipes/RecipesPage'
 import { RecipeEditorPage } from './pages/RecipeEditor/RecipeEditorPage'
 import { PlannerPage } from './pages/Planner/PlannerPage'
+import { ShoppingListPage } from './pages/ShoppingList/ShoppingListPage'
 
 function Placeholder({ name }: { name: string }) {
   return <p>{name} lands in a later task.</p>
@@ -20,7 +21,7 @@ export function App() {
         <Route path="recipes/new" element={<RecipeEditorPage />} />
         <Route path="recipes/:recipeId" element={<RecipeEditorPage />} />
         <Route path="ingredients" element={<IngredientsPage />} />
-        <Route path="list/:planId" element={<Placeholder name="Shopping list" />} />
+        <Route path="list/:planId" element={<ShoppingListPage />} />
         <Route path="history" element={<Placeholder name="History" />} />
         <Route path="history/:listId" element={<Placeholder name="Archived list" />} />
       </Route>
