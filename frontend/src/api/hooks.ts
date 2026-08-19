@@ -42,7 +42,7 @@ export const useSuggestions = (listId: number | undefined) =>
 export const useSettings = () => useQuery({ queryKey: keys.settings(), queryFn: api.getSettings })
 
 /** Wraps a mutation so it invalidates the given key prefixes on success. */
-export function useInvalidatingMutation<TArgs, TResult>(
+export function useInvalidatingMutation<TArgs = void, TResult = unknown>(
   mutationFn: (args: TArgs) => Promise<TResult>,
   invalidate: readonly (readonly unknown[])[],
 ) {

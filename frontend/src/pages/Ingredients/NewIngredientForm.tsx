@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createIngredient } from '../../api/client'
-import { keys, useInvalidatingMutation } from '../../api/hooks'
+import { useInvalidatingMutation } from '../../api/hooks'
 import { useToast } from '../../components/Toast'
 import {
   CATEGORY_LABELS,
