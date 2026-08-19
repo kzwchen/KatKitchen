@@ -1,0 +1,141 @@
+/*
+ * Print stylesheet for the shopping list (frontend/src/pages/ShoppingList).
+ *
+ * The list is printed once a week and carried into the store, so this file
+ * is the actual deliverable of the app. Selectors below were taken from the
+ * real markup in ShoppingListPage.tsx / ManualAdd.tsx, not guessed:
+ *
+ *   section.shopping
+ *     div.page-head.no-print          <- screen-only heading + actions row
+ *       h1                            "Shopping list — <week>"
+ *       div.page-head__actions
+ *         button "Regenerate" / "Print" / button.primary "Done shopping"
+ *     h1.print-only                   "Shopping list — <week>" (paper copy)
+ *     div.aisle  (one per ingredient category, plus one for staples)
+ *       h2                           aisle / category label
+ *       ul.items
+ *         li.item(.item--checked)
+ *           label
+ *             input[type=checkbox]
+ *             span.item__amount       (buy items only)
+ *             span.item__name
+ *             span.muted.no-print     " (added)" (manually-added items only)
+ *           button.link.no-print      "remove" (manually-added items only)
+ *     p.muted                         "Nothing to buy yet." (empty state)
+ *     div.no-print                    ManualAdd form + "you usually buy" chips
+ *
+ * Layout chrome (Layout.tsx) wraps all of this in div.layout > nav.nav +
+ * main.content.
+ */
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* Nav, and anything explicitly marked screen-only, vanish on paper.
+   * In the real markup every interactive control (Regenerate/Print/Done
+   * shopping buttons, the "remove" link, the manual-add form, the "you
+   * usually buy" chips) already lives inside an element carrying
+   * `.no-print` (either `.page-head` or a dedicated wrapper div), so the
+   * bare `button` rule below is defense in depth, not load-bearing. */
+  .nav,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  /* Hidden on screen (see styles.css `.print-only { display: none }`);
+   * this is the self-identifying heading that repeats on the paper copy. */
+  .print-only {
+    display: block !important;
+  }
+
+  .layout {
+    max-width: none;
+    padding: 0;
+  }
+
+  .content {
+    padding-top: 0;
+  }
+
+  /* `.shopping` actually contains two <h1>s: the screen-only one inside
+   * `.page-head.no-print`, and the `.print-only` one with identical text
+   * ("Shopping list — <week>"). The no-print one is hidden by the rule
+   * above, so only the print-only heading renders here. */
+  .shopping h1 {
+    font-size: 16pt;
+    margin: 0 0 10pt;
+  }
+
+  .aisle {
+    /* Keep an aisle's heading together with at least some of its items
+     * instead of stranding "PRODUCE" alone at the bottom of a page. */
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 10pt;
+  }
+
+  .aisle h2 {
+    font-size: 11pt;
+    color: #000;
+    border-bottom: 1pt solid #000;
+    padding-bottom: 2pt;
+  }
+
+  .items {
+    margin-top: 4pt;
+  }
+
+  /* Large enough to read at arm's length while pushing a cart. */
+  .item {
+    font-size: 12pt;
+    padding: 3pt 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .item__amount {
+    min-width: 70pt;
+    color: #000;
+  }
+
+  /* Native checkboxes print faintly or not at all; draw hollow squares
+   * with an explicit border so there is something to physically tick.
+   * `padding: 0` matters here: the global `input, select, textarea` rule
+   * in styles.css sets `padding: 6px 8px` for text inputs, and with
+   * `box-sizing: border-box` that padding alone (16px) plus the 1pt
+   * border already exceeds a naive 12pt width, forcing the browser to
+   * widen the box past its height and render a non-square checkbox. */
+  .item input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    width: 12pt;
+    height: 12pt;
+    padding: 0;
+    border: 1pt solid #000;
+    border-radius: 0;
+    margin-right: 6pt;
+    flex-shrink: 0;
+  }
+
+  /* A box checked while planning is still worth buying — don't strike
+   * the name through or grey it out on the paper copy. */
+  .item--checked .item__name {
+    text-decoration: none;
+    color: #000;
+  }
+
+  /* Used both for the empty-list message and the staples' "— used in
+   * <recipes>" note; the screen color (a light muted brown) is too faint
+   * once printed, so darken it. */
+  .muted {
+    color: #444;
+  }
+}
