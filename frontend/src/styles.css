@@ -35,3 +35,9 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9em; }
 .toasts { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
 .toast { padding: 10px 14px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 2px 8px rgb(0 0 0 / 0.08); max-width: 360px; }
 .toast--error { border-color: #b3261e; color: #b3261e; }
+
+.ingredient-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; }
+.ingredient-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; color: var(--muted); }
+.ingredient-form label.checkbox { flex-direction: row; align-items: center; gap: 8px; }
+.ingredient-form__actions { display: flex; gap: 8px; }
+.search { width: 260px; margin-bottom: 12px; }

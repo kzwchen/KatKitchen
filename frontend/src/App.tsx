@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { IngredientsPage } from './pages/Ingredients/IngredientsPage'
 
 function Placeholder({ name }: { name: string }) {
   return <p>{name} lands in a later task.</p>
@@ -15,7 +16,7 @@ export function App() {
         <Route path="recipes" element={<Placeholder name="Recipes" />} />
         <Route path="recipes/new" element={<Placeholder name="Recipe editor" />} />
         <Route path="recipes/:recipeId" element={<Placeholder name="Recipe editor" />} />
-        <Route path="ingredients" element={<Placeholder name="Ingredients" />} />
+        <Route path="ingredients" element={<IngredientsPage />} />
         <Route path="list/:planId" element={<Placeholder name="Shopping list" />} />
         <Route path="history" element={<Placeholder name="History" />} />
         <Route path="history/:listId" element={<Placeholder name="Archived list" />} />
