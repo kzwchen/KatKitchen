@@ -1,4 +1,4 @@
-# RatKitchen Implementation Plan
+# KatKitchen Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,13 +8,13 @@
 
 **Tech Stack:** Python 3.11+, FastAPI, SQLModel, SQLite, pytest, uvicorn; Node 20+, React 18, TypeScript, Vite, TanStack Query, Vitest, React Testing Library.
 
-**Spec:** `docs/superpowers/specs/2026-08-18-ratkitchen-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-18-katkitchen-design.md`
 
 ## Global Constraints
 
 - Python 3.11 or later. Node 20 or later.
 - Server binds `127.0.0.1` only. No authentication, no CORS to external origins.
-- Database file: `data/ratkitchen.db`. It is gitignored; never commit it.
+- Database file: `data/katkitchen.db`. It is gitignored; never commit it.
 - All API routes are prefixed `/api`.
 - Errors return JSON `{"detail": str, "code": str}`.
 - Canonical storage units are exactly `count`, `g`, `ml`. Cross-family conversion is never performed.
@@ -103,7 +103,7 @@ Create `backend/pyproject.toml`:
 
 ```toml
 [project]
-name = "ratkitchen-backend"
+name = "katkitchen-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
@@ -596,7 +596,7 @@ Expected: collection error — `ModuleNotFoundError: No module named 'app.models
 Create `backend/app/models.py`:
 
 ```python
-"""SQLModel tables for RatKitchen.
+"""SQLModel tables for KatKitchen.
 
 Design note: an ingredient's `unit` is fixed at creation. Every recipe line
 referencing that ingredient stores its quantity in that unit, which makes
@@ -810,7 +810,7 @@ from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-DB_PATH = DATA_DIR / "ratkitchen.db"
+DB_PATH = DATA_DIR / "katkitchen.db"
 
 engine = create_engine(
     f"sqlite:///{DB_PATH}",
@@ -1643,7 +1643,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="RatKitchen", lifespan=lifespan)
+app = FastAPI(title="KatKitchen", lifespan=lifespan)
 app.add_exception_handler(AppError, app_error_handler)
 
 app.include_router(ingredients.router)
@@ -4581,7 +4581,7 @@ export function Layout() {
   return (
     <div className="layout">
       <nav className="nav">
-        <span className="nav__brand">RatKitchen</span>
+        <span className="nav__brand">KatKitchen</span>
         {LINKS.map((link) => (
           <NavLink
             key={link.to}
@@ -4723,7 +4723,7 @@ $frontend = Start-Process -PassThru -NoNewWindow -FilePath 'pwsh' -ArgumentList 
   "Set-Location '$root/frontend'; npm run dev"
 )
 
-Write-Host 'RatKitchen running. API on http://127.0.0.1:8000, UI on http://127.0.0.1:5173'
+Write-Host 'KatKitchen running. API on http://127.0.0.1:8000, UI on http://127.0.0.1:5173'
 try {
   Wait-Process -Id $backend.Id, $frontend.Id
 } finally {
@@ -4736,7 +4736,7 @@ try {
 Create `README.md`:
 
 ````markdown
-# RatKitchen
+# KatKitchen
 
 A local recipe manager and weekly shopping list generator. Plan a week of
 meals, get one accurate aisle-grouped list, print it, shop once.
@@ -6882,7 +6882,7 @@ export function Layout() {
   return (
     <div className="layout">
       <nav className="nav">
-        <span className="nav__brand">RatKitchen</span>
+        <span className="nav__brand">KatKitchen</span>
         {LINKS.map((link) => (
           <NavLink
             key={link.to}

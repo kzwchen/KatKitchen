@@ -82,7 +82,7 @@ export function Layout() {
   return (
     <div className="layout">
       <nav className="nav">
-        <span className="nav__brand">RatKitchen</span>
+        <span className="nav__brand">KatKitchen</span>
         {LINKS.map((link) => (
           <NavLink
             key={link.to}

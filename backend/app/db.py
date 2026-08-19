@@ -9,7 +9,7 @@ from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-DB_PATH = DATA_DIR / "ratkitchen.db"
+DB_PATH = DATA_DIR / "katkitchen.db"
 
 engine = create_engine(
     f"sqlite:///{DB_PATH}",

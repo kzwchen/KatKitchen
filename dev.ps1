@@ -12,7 +12,7 @@ $frontend = Start-Process -PassThru -NoNewWindow -FilePath 'pwsh' -ArgumentList 
   "Set-Location '$root/frontend'; npm run dev"
 )
 
-Write-Host 'RatKitchen running. API on http://127.0.0.1:8000, UI on http://127.0.0.1:5173'
+Write-Host 'KatKitchen running. API on http://127.0.0.1:8000, UI on http://127.0.0.1:5173'
 try {
   Wait-Process -Id $backend.Id, $frontend.Id
 } finally {

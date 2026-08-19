@@ -1,4 +1,4 @@
-"""SQLModel tables for RatKitchen.
+"""SQLModel tables for KatKitchen.
 
 Design note: an ingredient's `unit` is fixed at creation. Every recipe line
 referencing that ingredient stores its quantity in that unit, which makes

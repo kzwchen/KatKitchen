@@ -44,7 +44,7 @@ def client_fixture(engine, monkeypatch):
     # in-memory `engine` fixture above, which is only wired in via the
     # get_session override for request handling). Left alone, entering the
     # TestClient context below would run that real init_db() and write to
-    # the real <repo>/data/ratkitchen.db file. Production startup under
+    # the real <repo>/data/katkitchen.db file. Production startup under
     # uvicorn is unaffected: this patches only app.main's reference to
     # init_db, and only for the lifetime of this fixture.
     monkeypatch.setattr("app.main.init_db", lambda: None)

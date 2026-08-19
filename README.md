@@ -1,4 +1,4 @@
-# RatKitchen
+# KatKitchen
 
 A local recipe manager and weekly shopping list generator. Plan a week of
 meals, get one accurate aisle-grouped list, print it, shop once.

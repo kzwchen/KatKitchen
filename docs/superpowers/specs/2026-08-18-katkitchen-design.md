@@ -1,4 +1,4 @@
-# RatKitchen — Design Spec
+# KatKitchen — Design Spec
 
 **Date:** 2026-08-18
 **Status:** Approved for planning
@@ -35,7 +35,7 @@ beyond localhost.
 
 ## Data Model
 
-SQLite via SQLModel. Database at `data/ratkitchen.db`.
+SQLite via SQLModel. Database at `data/katkitchen.db`.
 
 ### Ingredient
 
@@ -298,7 +298,7 @@ its week and what was checked versus skipped.
 ## Project Layout
 
 ```
-RatKitchen/
+KatKitchen/
   backend/
     app/
       main.py db.py models.py schemas.py
@@ -312,7 +312,7 @@ RatKitchen/
       pages/  Recipes/ RecipeEditor/ Ingredients/ Planner/ ShoppingList/ History/
       print.css
     package.json
-  data/ratkitchen.db
+  data/katkitchen.db
   docs/superpowers/specs/
   dev.ps1
   README.md

@@ -1,4 +1,4 @@
-# RatKitchen — known issues carried past v1
+# KatKitchen — known issues carried past v1
 
 Every item here was found by review during the build, judged not worth blocking
 the merge, and re-triaged by the final whole-branch review, which confirmed 34 of

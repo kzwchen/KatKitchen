@@ -1,5 +1,5 @@
 """The test suite must be hermetic: no test may open the real on-disk database
-at <repo>/data/ratkitchen.db.
+at <repo>/data/katkitchen.db.
 
 This check is deliberately NON-DESTRUCTIVE. An earlier version deleted the
 real database at collection time to guarantee a clean slate, which meant
@@ -26,7 +26,7 @@ from sqlalchemy import event
 
 import app.db
 
-DB_PATH = Path(__file__).resolve().parents[2] / "data" / "ratkitchen.db"
+DB_PATH = Path(__file__).resolve().parents[2] / "data" / "katkitchen.db"
 
 # Every connection opened against the real, on-disk engine during this
 # session, as formatted stack traces. Populated by the listener below.
