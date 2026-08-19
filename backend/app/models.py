@@ -140,6 +140,15 @@ class MealPlan(SQLModel, table=True):
         back_populates="plan",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    # A plan's shopping list is a derived, strictly 1:1 child (ShoppingList.plan_id
+    # is unique) with no independent lifecycle of its own -- it only exists because
+    # the plan does. Without this cascade, deleting a plan that already has a
+    # generated list raised a raw IntegrityError (ShoppingList.plan_id is a real
+    # FK), surfaced to callers as an unhandled 500.
+    shopping_list: Optional["ShoppingList"] = Relationship(
+        back_populates="plan",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
+    )
 
 
 class PlannedMeal(SQLModel, table=True):
@@ -168,6 +177,7 @@ class ShoppingList(SQLModel, table=True):
         back_populates="shopping_list",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    plan: Optional[MealPlan] = Relationship(back_populates="shopping_list")
 
 
 class ShoppingListItem(SQLModel, table=True):

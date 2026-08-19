@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { addMeal, createPlan, deleteMeal, generateList, updateMeal } from '../../api/client'
 import { keys, useInvalidatingMutation, usePlan, usePlans, useRecipes } from '../../api/hooks'
@@ -7,6 +7,67 @@ import { DAY_NAMES, SLOTS } from '../../types'
 import type { Meal, MealSlot } from '../../types'
 import { SlotPicker } from './SlotPicker'
 import { formatWeek, mondayOf } from './weeks'
+
+interface ServingsInputProps {
+  meal: Meal
+  label: string
+  onCommit: (servingsToMake: number) => void
+}
+
+/**
+ * A batch-size field for a cook meal.
+ *
+ * This buffers the typed digits in local state rather than binding `value`
+ * straight to `meal.servings_to_make`: firing a mutation on every keystroke
+ * made `mutateAsync` flip `isPending` synchronously, re-rendering before the
+ * network round trip and snapping the input back to the pre-edit digits, and
+ * sent one PATCH per keystroke (so typing "10" could land as "1" or "0"
+ * depending on response order). The value only commits to the server on
+ * blur or Enter, and only if it parses to a finite number >= 1 -- a
+ * transient empty field (which would otherwise serialise `NaN` to `null`
+ * and blank the batch size) is silently reverted to the last known-good
+ * value instead of sent.
+ */
+function ServingsInput({ meal, label, onCommit }: ServingsInputProps) {
+  const [draft, setDraft] = useState(String(meal.servings_to_make ?? 1))
+
+  // Keep the field in sync when the server value legitimately changes from
+  // elsewhere (e.g. a refetch after another edit), but only while the user
+  // isn't actively mid-edit-and-blurred-away from it -- there's no pending
+  // local edit to preserve once this effect re-runs, since committing
+  // always follows blur/Enter, not this prop change.
+  useEffect(() => {
+    setDraft(String(meal.servings_to_make ?? 1))
+  }, [meal.servings_to_make])
+
+  function commit() {
+    const parsed = Number(draft)
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setDraft(String(meal.servings_to_make ?? 1))
+      return
+    }
+    if (parsed !== meal.servings_to_make) {
+      onCommit(parsed)
+    }
+  }
+
+  return (
+    <input
+      type="number"
+      min="1"
+      value={draft}
+      aria-label={label}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commit()
+        }
+      }}
+    />
+  )
+}
 
 export function PlannerPage() {
   const { planId } = useParams()
@@ -126,16 +187,14 @@ export function PlannerPage() {
                         {meal.kind === 'cook' ? (
                           <label className="meal__servings">
                             makes
-                            <input
-                              type="number"
-                              min="1"
-                              value={meal.servings_to_make ?? 1}
-                              aria-label={`Servings for ${meal.recipe_name} on ${DAY_NAMES[day]} ${slot}`}
-                              onChange={(e) =>
+                            <ServingsInput
+                              meal={meal}
+                              label={`Servings for ${meal.recipe_name} on ${DAY_NAMES[day]} ${slot}`}
+                              onCommit={(servingsToMake) =>
                                 run(
                                   editMeal.mutateAsync({
                                     mealId: meal.id,
-                                    body: { servings_to_make: Number(e.target.value) },
+                                    body: { servings_to_make: servingsToMake },
                                   }),
                                 )
                               }

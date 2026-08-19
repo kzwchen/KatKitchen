@@ -30,7 +30,13 @@ export function NewIngredientForm({ initialName = '', onCreated, onCancel }: Pro
   const [stapleTouched, setStapleTouched] = useState(false)
   const toast = useToast()
 
-  const create = useInvalidatingMutation(createIngredient, [keys.ingredients()])
+  // Invalidate the one-element ['ingredients'] prefix, not keys.ingredients()
+  // (which is ['ingredients', ''] -- the no-search variant only). TanStack
+  // Query v5 exact-matches primitive key segments, so invalidating the exact
+  // no-search key would miss an active ['ingredients', <search term>] query,
+  // e.g. the Ingredients page while a search is typed. The one-element
+  // prefix partial-matches every search variant.
+  const create = useInvalidatingMutation(createIngredient, [['ingredients']])
 
   // The category drives the unit and staple defaults until the user overrides them.
   function pickCategory(next: Category) {

@@ -23,8 +23,49 @@ const MONDAY_CHILI: Meal = {
 }
 
 describe('leftoverOptions', () => {
-  it('offers an earlier cook of the same recipe', () => {
-    expect(leftoverOptions(10, 1, 'lunch', [MONDAY_CHILI])).toEqual([MONDAY_CHILI])
+  it('offers an earlier cook of the same recipe, and only that', () => {
+    // One true match plus a decoy for each of the three filter clauses, so
+    // dropping any single clause lets a decoy leak into the result:
+    //  - kind === 'cook'                 -> defeated by an earlier LEFTOVERS
+    //                                        meal of the same recipe
+    //  - recipe_id === recipeId          -> defeated by an earlier COOK of a
+    //                                        different recipe
+    //  - slotIndex(...) < here           -> defeated by a LATER cook of the
+    //                                        same recipe
+    const trueMatch: Meal = { ...MONDAY_CHILI, id: 1, day: 0, slot: 'dinner' } // index 2
+    const earlierLeftoversSameRecipe: Meal = {
+      ...MONDAY_CHILI,
+      id: 2,
+      day: 0,
+      slot: 'lunch', // index 1, earlier than "here"
+      kind: 'leftovers',
+      servings_to_make: null,
+      source_meal_id: 1,
+    }
+    const earlierCookDifferentRecipe: Meal = {
+      ...MONDAY_CHILI,
+      id: 3,
+      day: 0,
+      slot: 'breakfast', // index 0, earlier than "here"
+      recipe_id: 11,
+      recipe_name: 'Soup',
+    }
+    const laterCookSameRecipe: Meal = {
+      ...MONDAY_CHILI,
+      id: 4,
+      day: 2,
+      slot: 'breakfast', // index 6, later than "here"
+    }
+    const candidates = [
+      trueMatch,
+      earlierLeftoversSameRecipe,
+      earlierCookDifferentRecipe,
+      laterCookSameRecipe,
+    ]
+
+    // "here" is day 1, lunch -> index 4: after the true match and both
+    // earlier decoys, before the later decoy.
+    expect(leftoverOptions(10, 1, 'lunch', candidates)).toEqual([trueMatch])
   })
 
   it('offers nothing for a slot before the cook', () => {

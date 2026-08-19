@@ -367,3 +367,27 @@ def test_deleting_a_plan_removes_its_meals(client, plan, chili):
     add_meal(client, plan["id"], recipe_id=chili["id"])
     assert client.delete(f"/api/plans/{plan['id']}").status_code == 204
     assert client.get(f"/api/plans/{plan['id']}").status_code == 404
+
+
+def test_deleting_a_plan_with_a_generated_list_cascades_instead_of_500ing(
+    client, plan, chili
+):
+    # Reproduces the bug: ShoppingList.plan_id is a real FK with no cascade
+    # from the MealPlan side, so deleting a plan that already has a
+    # generated shopping list used to raise an unhandled IntegrityError
+    # (surfaced to callers as a bare 500). Deleting a week after generating
+    # its list is an ordinary user action, so the plan -- as the owning,
+    # 1:1 parent of its list -- should take the list (and its items) with
+    # it when deleted.
+    add_meal(client, plan["id"], recipe_id=chili["id"])
+    generated = client.post(f"/api/plans/{plan['id']}/list")
+    assert generated.status_code == 201
+    list_id = generated.json()["id"]
+
+    response = client.delete(f"/api/plans/{plan['id']}")
+    assert response.status_code == 204
+
+    assert client.get(f"/api/plans/{plan['id']}").status_code == 404
+    deleted_list = client.get(f"/api/lists/{list_id}")
+    assert deleted_list.status_code == 404
+    assert deleted_list.json()["code"] == "list_not_found"
