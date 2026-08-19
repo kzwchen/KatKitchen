@@ -68,3 +68,21 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9em; }
 .inline-create { margin: 16px 0; padding: 12px; border: 1px dashed var(--accent); border-radius: 8px; }
 .inline-create h3 { margin-top: 0; }
 .error { color: #b3261e; }
+.page-head__actions { display: flex; gap: 8px; align-items: center; }
+
+.grid { table-layout: fixed; }
+.grid th { text-transform: capitalize; }
+.grid__cell { vertical-align: top; height: 92px; position: relative; }
+.grid__add { width: 100%; border-style: dashed; color: var(--muted); }
+
+.meal { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; }
+.meal--leftovers { opacity: 0.75; }
+.meal__servings { display: flex; gap: 4px; align-items: center; color: var(--muted); }
+.meal__servings input { width: 54px; }
+
+.slot-picker { position: absolute; z-index: 20; background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 6px; width: 260px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.12); }
+.slot-picker ul { list-style: none; margin: 4px 0 0; padding: 0; max-height: 200px; overflow-y: auto; }
+.slot-picker button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 6px; font-size: 0.9em; }
+.slot-picker button:hover { background: #eef3ef; }
+
+.warnings { list-style: none; padding: 0; margin-top: 16px; }

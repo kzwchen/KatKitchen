@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { IngredientsPage } from './pages/Ingredients/IngredientsPage'
 import { RecipesPage } from './pages/Recipes/RecipesPage'
 import { RecipeEditorPage } from './pages/RecipeEditor/RecipeEditorPage'
+import { PlannerPage } from './pages/Planner/PlannerPage'
 
 function Placeholder({ name }: { name: string }) {
   return <p>{name} lands in a later task.</p>
@@ -13,8 +14,8 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/planner" replace />} />
-        <Route path="planner" element={<Placeholder name="Planner" />} />
-        <Route path="planner/:planId" element={<Placeholder name="Planner" />} />
+        <Route path="planner" element={<PlannerPage />} />
+        <Route path="planner/:planId" element={<PlannerPage />} />
         <Route path="recipes" element={<RecipesPage />} />
         <Route path="recipes/new" element={<RecipeEditorPage />} />
         <Route path="recipes/:recipeId" element={<RecipeEditorPage />} />
