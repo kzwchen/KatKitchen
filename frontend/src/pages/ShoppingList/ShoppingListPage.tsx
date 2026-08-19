@@ -33,7 +33,8 @@ export function groupByCategory(
   return groups
 }
 
-function amountOf(item: ListItem): string {
+/** "3 ×" / "250 g" / "" -- shared with the archived (read-only) list view. */
+export function amountOf(item: ListItem): string {
   if (item.display_quantity == null) return ''
   if (item.display_unit === 'count') return `${item.display_quantity} ×`
   return `${item.display_quantity} ${item.display_unit}`

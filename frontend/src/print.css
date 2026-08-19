@@ -26,6 +26,10 @@
  *
  * Layout chrome (Layout.tsx) wraps all of this in div.layout > nav.nav +
  * main.content.
+ *
+ * The archived view (pages/History/ArchivedListPage.tsx) reuses the same
+ * section.shopping markup, minus the checkboxes and the interactive chrome,
+ * so every rule below applies to a printed past week too.
  */
 
 @media print {
