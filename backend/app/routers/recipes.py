@@ -203,24 +203,24 @@ def delete_recipe(recipe_id: int, session: Session = Depends(get_session)) -> Re
         )
 
     # Deleted through the ORM, one object at a time, rather than with a bulk
-    # `delete(PlannedMeal).where(...)`, because `PlannedMeal.source_meal_id` is
-    # self-referencing -- a leftovers slot points at the cook meal it eats from
-    # -- and the session's unit of work is what handles that. Two things
-    # depend on it, both verified by mutating them away and watching a test
-    # fail:
+    # `delete(PlannedMeal).where(...)`. `PlannedMeal.source_meal_id` is
+    # self-referencing -- a leftovers slot points at the cook meal it eats
+    # from -- so the obvious worry is delete ordering. That worry is NOT the
+    # reason, and saying so was measured rather than assumed: swapping this
+    # loop for a real bulk statement leaves the cook+leftovers test passing.
+    # SQLite checks immediate FK constraints at the end of the STATEMENT, so a
+    # single DELETE covering both rows never violates one. (Ordering is
+    # genuinely load-bearing for `delete_plan`, which deletes the plan and
+    # lets the cascade find the meals -- a different path.)
     #
-    #   * Ordering. A dependent leftovers row must be deleted before the cook
-    #     row it references, or SQLite raises "FOREIGN KEY constraint failed"
-    #     -- the very error this fix exists to remove, from the other
-    #     direction. The `source_meal`/`leftovers` relationship pair in
-    #     models.py is what lets the unit of work sort the two.
-    #   * Reach. That pair's "all" cascade also collects a leftovers row this
-    #     query cannot see: one whose own `recipe_id` differs from its
-    #     source's. A bulk statement, which skips the cascade, leaves it
-    #     pointing at a deleted row. The shape is unreachable through the API
-    #     today (`_validate_leftovers` requires the two recipes to match, and
-    #     `update_meal` refuses to re-point a cook meal that has leftovers),
-    #     so this is only belt and braces -- but free ones.
+    # What the per-object path actually buys is reach: the `source_meal` /
+    # `leftovers` "all" cascade in models.py also collects a leftovers row
+    # this query cannot see, one whose own `recipe_id` differs from its
+    # source's. A bulk statement skips the cascade and would leave it pointing
+    # at a deleted row. That shape is unreachable through the API today
+    # (`_validate_leftovers` requires the two recipes to match, and
+    # `update_meal` refuses to re-point a cook meal that has leftovers), so
+    # this is belt and braces against a future writer, not a live bug.
     finished = session.exec(
         select(PlannedMeal)
         .join(MealPlan, PlannedMeal.plan_id == MealPlan.id)

@@ -9,6 +9,7 @@ past the application entirely: a database constraint the request violated."""
 
 from __future__ import annotations
 
+import logging
 import re
 from http import HTTPStatus
 
@@ -17,6 +18,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger(__name__)
 
 
 class AppError(Exception):
@@ -97,7 +100,15 @@ async def integrity_error_handler(
     (409). `sqlite_errorname` is the driver's own structured discriminator
     (Python 3.11+); if it is ever absent we fall back to the conflict
     reading, which is the safer of the two to be wrong about.
+
+    Logged with a traceback on the way out, always. Turning these into tidy
+    4xx responses removes the one signal a bare 500 did give -- a stack trace
+    in the server log -- and a constraint failure the application should have
+    prevented looks exactly like one the caller caused. The response says
+    "your request conflicts"; the log is where the evidence lives that it did
+    not.
     """
+    logger.exception("database constraint violated", exc_info=exc)
     if getattr(exc.orig, "sqlite_errorname", "") == "SQLITE_CONSTRAINT_NOTNULL":
         column = _null_column(exc)
         detail = (

@@ -360,9 +360,16 @@ def test_deleting_a_leftover_meal_succeeds(client, plan, chili):
 
 
 def test_converting_a_leftovers_meal_back_to_a_cook_keeps_the_row(client, plan, chili):
-    # Guards the delete-orphan cascade on PlannedMeal.leftovers: turning a
-    # leftovers slot back into a cook nulls source_meal_id, which must be read
-    # as "this meal is its own batch now", not as "orphan -- delete it".
+    # Guards update_meal's `changes["source_meal_id"] = None`: converting a
+    # leftovers slot back into a cook must clear the link and keep the row,
+    # meaning "this meal is its own batch now".
+    #
+    # It does NOT, despite appearances, discriminate the "all" vs
+    # "all, delete-orphan" choice on PlannedMeal.leftovers -- switching the
+    # cascade to delete-orphan leaves the whole suite green, because the
+    # router assigns the FK column directly and never removes the child from
+    # the parent's collection, so orphan detection never fires. "all" is the
+    # conservative reading, not a forced one. Measured, not assumed.
     cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
     leftover = add_meal(
         client,
