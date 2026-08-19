@@ -165,6 +165,35 @@ class PlannedMeal(SQLModel, table=True):
     source_meal_id: Optional[int] = Field(default=None, foreign_key="plannedmeal.id")
 
     plan: Optional[MealPlan] = Relationship(back_populates="meals")
+    # source_meal_id is self-referencing: a leftovers slot points at the cook
+    # meal it eats from. Declaring it as a relationship is what lets
+    # SQLAlchemy's unit of work topologically sort deletes within this one
+    # table, so the dependent (leftovers) row goes before the cook row it
+    # references. Without it, deleting a plan whose week had a leftovers slot
+    # emitted the deletes in arbitrary order and, with PRAGMA foreign_keys=ON,
+    # raised "FOREIGN KEY constraint failed". `remote_side` is required on the
+    # many-to-one side of a self-reference: it names the column that is the
+    # "one" end (the primary key), which is the only way SQLAlchemy can tell
+    # the two directions apart.
+    source_meal: Optional["PlannedMeal"] = Relationship(
+        back_populates="leftovers",
+        sa_relationship_kwargs={"remote_side": "PlannedMeal.id"},
+    )
+    # Cascade, not just ordering: a leftovers slot cannot outlive the cook it
+    # eats from. Deleting a cook meal on its own is still refused by
+    # `delete_meal` (409 meal_has_leftovers), so in practice this fires only
+    # when the whole plan goes.
+    #
+    # "all" and deliberately NOT "delete-orphan", unlike the collections
+    # above: delete-orphan would read "a leftovers row that stops pointing at
+    # a source is meaningless, delete it", but `update_meal` creates exactly
+    # that row on purpose when a leftovers slot is converted back into a cook
+    # (it nulls source_meal_id). "all" cascades the delete without claiming
+    # the de-associated state is impossible.
+    leftovers: list["PlannedMeal"] = Relationship(
+        back_populates="source_meal",
+        sa_relationship_kwargs={"cascade": "all"},
+    )
 
 
 class ShoppingList(SQLModel, table=True):

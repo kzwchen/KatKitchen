@@ -1,10 +1,11 @@
 """A single error shape for the whole API: {"detail": str, "code": str}.
 
 `AppError` covers deliberate, application-raised errors (see the handler
-below). The other two handlers make sure FastAPI/Starlette's own error
+below). The other handlers make sure FastAPI/Starlette's own error
 paths -- pydantic validation failures, unmatched routes, wrong methods, and
 any bare `HTTPException` -- conform to the same shape instead of bypassing
-it."""
+it. `integrity_error_handler` does the same for the one path that reaches
+past the application entirely: a database constraint the request violated."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from http import HTTPStatus
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -67,4 +69,48 @@ async def http_exception_handler(
         status_code=exc.status_code,
         content={"detail": detail, "code": _code_from_status(exc.status_code)},
         headers=getattr(exc, "headers", None),
+    )
+
+
+def _null_column(exc: IntegrityError) -> str | None:
+    """Pull the column out of "NOT NULL constraint failed: table.column"."""
+    match = re.search(r"NOT NULL constraint failed: \w+\.(\w+)", str(exc.orig))
+    return match.group(1) if match else None
+
+
+async def integrity_error_handler(
+    _request: Request, exc: IntegrityError
+) -> JSONResponse:
+    """The database's own constraints, spoken in the API's error shape.
+
+    One handler rather than a guard per column, deliberately. Every route
+    still validates what it can, but the constraints are the only check that
+    cannot be raced or forgotten: `exclude_unset` lets an explicit JSON null
+    through to a NOT NULL column, and any SELECT-then-INSERT uniqueness check
+    (see `add_meal`) can lose to a concurrent writer between the two
+    statements. Before this handler those surfaced as bare 500s with no
+    `code`, breaking the contract every other error path keeps.
+
+    The kind of constraint decides the status: a null in the request body is
+    the caller's malformed input (422), while everything else -- uniqueness,
+    foreign keys, checks -- is a conflict with data already in the database
+    (409). `sqlite_errorname` is the driver's own structured discriminator
+    (Python 3.11+); if it is ever absent we fall back to the conflict
+    reading, which is the safer of the two to be wrong about.
+    """
+    if getattr(exc.orig, "sqlite_errorname", "") == "SQLITE_CONSTRAINT_NOTNULL":
+        column = _null_column(exc)
+        detail = (
+            f"{column} may not be null" if column else "A required field was null"
+        )
+        return JSONResponse(
+            status_code=422,
+            content={"detail": detail, "code": "null_not_allowed"},
+        )
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": "That change conflicts with data already in the database",
+            "code": "constraint_violation",
+        },
     )

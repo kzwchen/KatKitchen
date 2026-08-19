@@ -128,6 +128,57 @@ def test_regenerating_preserves_manual_items(session, world):
     assert manual[0].checked is True
 
 
+def test_regenerating_leaves_a_suggested_item_that_shares_a_recipe_ingredient(
+    session, world
+):
+    """The merge must key its existing-item lookup on source, not just on
+    ingredient_id.
+
+    This is the live suggestion-chip path: accepting a repeat-buy suggestion
+    creates an item that carries an `ingredient_id` and a non-RECIPE source.
+    The suggested onion below is created *before* the first generate() so it
+    is the only row holding that ingredient_id, which makes the outcome
+    independent of the order `shopping_list.items` happens to load in. Drop
+    the `source is ItemSource.RECIPE` filter in list_service.generate and
+    regeneration hijacks this row -- overwriting the user's quantity with the
+    recipe total and never creating a recipe row of its own.
+    """
+    shopping_list = ShoppingList(plan_id=world["plan"].id)
+    session.add(shopping_list)
+    session.commit()
+    session.add(
+        ShoppingListItem(
+            list_id=shopping_list.id,
+            ingredient_id=world["onion"].id,
+            source=ItemSource.SUGGESTED,
+            section=ItemSection.BUY,
+            quantity=1.0,
+            display_quantity=1.0,
+            display_unit="count",
+            checked=True,
+            note="you buy these most weeks",
+        )
+    )
+    session.commit()
+
+    regenerated = generate(session, world["plan"].id)
+
+    suggested = [i for i in regenerated.items if i.source is ItemSource.SUGGESTED]
+    assert len(suggested) == 1
+    assert suggested[0].ingredient_id == world["onion"].id
+    assert suggested[0].quantity == 1.0
+    assert suggested[0].checked is True
+    assert suggested[0].note == "you buy these most weeks"
+
+    recipe_onions = [
+        i
+        for i in regenerated.items
+        if i.source is ItemSource.RECIPE and i.ingredient_id == world["onion"].id
+    ]
+    assert len(recipe_onions) == 1
+    assert recipe_onions[0].quantity == 2.0
+
+
 def test_regenerating_preserves_checked_state_across_a_quantity_change(session, world):
     shopping_list = generate(session, world["plan"].id)
     onion_item = items_by_ingredient(shopping_list)[world["onion"].id]
@@ -154,17 +205,12 @@ def test_regenerating_drops_a_recipe_item_that_no_longer_applies(session, world)
     session.add(onion_item)
     session.commit()
 
-    # PlannedMeal.source_meal_id is a plain FK column with no ORM
-    # Relationship, so SQLAlchemy's unit-of-work cannot topologically sort a
-    # bulk delete of self-referencing rows; with FK enforcement on, deleting
-    # the cooked meal before the leftover meal that references it raises an
-    # IntegrityError. Delete dependents (leftovers) first.
-    for meal in sorted(
-        session.exec(select(PlannedMeal)).all(),
-        key=lambda m: m.source_meal_id is None,
-    ):
+    # PlannedMeal.source_meal (self-referencing) is a declared relationship,
+    # so the unit of work orders these deletes itself -- no need to hand-sort
+    # leftovers before the cook meal they point at.
+    for meal in session.exec(select(PlannedMeal)).all():
         session.delete(meal)
-        session.commit()
+    session.commit()
 
     regenerated = generate(session, world["plan"].id)
     assert regenerated.items == []
@@ -196,13 +242,9 @@ def test_regenerating_keeps_a_manual_item_even_with_no_meals(session, world):
         )
     )
     session.commit()
-    # See the comment above about self-referencing FK delete order.
-    for meal in sorted(
-        session.exec(select(PlannedMeal)).all(),
-        key=lambda m: m.source_meal_id is None,
-    ):
+    for meal in session.exec(select(PlannedMeal)).all():
         session.delete(meal)
-        session.commit()
+    session.commit()
 
     regenerated = generate(session, world["plan"].id)
     assert [i.custom_name for i in regenerated.items] == ["Coffee"]

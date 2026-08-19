@@ -1,4 +1,7 @@
 import pytest
+from sqlmodel import select
+
+from app.models import PlannedMeal
 
 
 @pytest.fixture
@@ -356,6 +359,31 @@ def test_deleting_a_leftover_meal_succeeds(client, plan, chili):
     assert len(client.get(f"/api/plans/{plan['id']}").json()["meals"]) == 1
 
 
+def test_converting_a_leftovers_meal_back_to_a_cook_keeps_the_row(client, plan, chili):
+    # Guards the delete-orphan cascade on PlannedMeal.leftovers: turning a
+    # leftovers slot back into a cook nulls source_meal_id, which must be read
+    # as "this meal is its own batch now", not as "orphan -- delete it".
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+    leftover = add_meal(
+        client,
+        plan["id"],
+        day=1,
+        slot="lunch",
+        recipe_id=chili["id"],
+        kind="leftovers",
+        source_meal_id=cook["id"],
+    ).json()
+
+    response = client.patch(f"/api/meals/{leftover['id']}", json={"kind": "cook"})
+    assert response.status_code == 200
+    assert response.json()["kind"] == "cook"
+    assert response.json()["source_meal_id"] is None
+    assert response.json()["servings_to_make"] == 4
+
+    meals = client.get(f"/api/plans/{plan['id']}").json()["meals"]
+    assert sorted(m["id"] for m in meals) == sorted([cook["id"], leftover["id"]])
+
+
 def test_plan_list_is_newest_first(client):
     client.post("/api/plans", json={"week_start": "2026-08-10"})
     client.post("/api/plans", json={"week_start": "2026-08-17"})
@@ -367,6 +395,35 @@ def test_deleting_a_plan_removes_its_meals(client, plan, chili):
     add_meal(client, plan["id"], recipe_id=chili["id"])
     assert client.delete(f"/api/plans/{plan['id']}").status_code == 204
     assert client.get(f"/api/plans/{plan['id']}").status_code == 404
+
+
+def test_deleting_a_plan_with_a_leftovers_slot_cascades_instead_of_500ing(
+    client, session, plan, chili
+):
+    # Reproduces the bug: PlannedMeal.source_meal_id is a self-referencing FK,
+    # so the unit of work has to delete the leftovers row before the cook row
+    # it points at. Without an ORM relationship describing that dependency,
+    # SQLAlchemy emitted the deletes in arbitrary order and, with
+    # PRAGMA foreign_keys=ON, the cook-first ordering raised
+    # "FOREIGN KEY constraint failed" -- a bare 500 out of a public endpoint.
+    cook = add_meal(client, plan["id"], recipe_id=chili["id"]).json()
+    leftover = add_meal(
+        client,
+        plan["id"],
+        day=1,
+        slot="lunch",
+        recipe_id=chili["id"],
+        kind="leftovers",
+        source_meal_id=cook["id"],
+    )
+    assert leftover.status_code == 201
+
+    response = client.delete(f"/api/plans/{plan['id']}")
+    assert response.status_code == 204
+
+    assert client.get(f"/api/plans/{plan['id']}").status_code == 404
+    # Both meal rows are really gone -- not just the plan.
+    assert session.exec(select(PlannedMeal)).all() == []
 
 
 def test_deleting_a_plan_with_a_generated_list_cascades_instead_of_500ing(
