@@ -37,7 +37,8 @@ function HouseholdSizeInput() {
     // The API declares household_size as `int >= 1`, so a fraction is a
     // guaranteed 422. The field's `step="1"` stops most of them; this catches
     // the rest (pasted text, a browser that ignores the step).
-    if (!Number.isFinite(parsed) || parsed < 1 || !Number.isInteger(parsed)) {
+    // isInteger covers NaN and Infinity too, so no isFinite check is needed.
+    if (parsed < 1 || !Number.isInteger(parsed)) {
       setDraft(serverValue)
       return
     }
