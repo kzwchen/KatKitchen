@@ -99,3 +99,6 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9em; }
 .manual-add input { width: 320px; }
 .suggestions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 .print-only { display: none; }
+
+.nav__setting { margin-left: auto; display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 0.9em; }
+.nav__setting input { width: 56px; }
