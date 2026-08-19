@@ -170,6 +170,22 @@ def update_recipe(
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_recipe(recipe_id: int, session: Session = Depends(get_session)) -> Response:
+    """Delete a recipe, dropping its slots in already-finished weeks.
+
+    A week you are still planning or shopping for is a reason to refuse: the
+    slot is a plan you might act on, and silently emptying it would change
+    what you are about to cook. A finished week is not -- it is a record, and
+    refusing there made every recipe the user ever actually cooked
+    undeletable forever (`PlannedMeal.recipe_id` is a live FK with no
+    ON DELETE clause, so the delete failed at the database).
+
+    The user chose to lose the day-by-day record of having cooked this in a
+    finished week. What that costs is bounded: archived shopping lists
+    snapshot `recipe_name` into `ShoppingListItem.contributions` when the list
+    is generated (see `services/list_service.py`), so "what did I buy in week
+    X" is unaffected by this and stays readable after the recipe is gone.
+    Nothing here touches `ShoppingList` or `ShoppingListItem`.
+    """
     recipe = _get_or_404(session, recipe_id)
     weeks = list(
         session.exec(
@@ -181,10 +197,38 @@ def delete_recipe(recipe_id: int, session: Session = Depends(get_session)) -> Re
         )
     )
     if weeks:
-        listed = ", ".join(str(week) for week in weeks)
+        listed = ", ".join(str(week) for week in sorted(weeks))
         raise AppError(
             409, "recipe_in_use", f"Can't delete {recipe.name}: planned for {listed}"
         )
+
+    # Deleted through the ORM, one object at a time, rather than with a bulk
+    # `delete(PlannedMeal).where(...)`, because `PlannedMeal.source_meal_id` is
+    # self-referencing -- a leftovers slot points at the cook meal it eats from
+    # -- and the session's unit of work is what handles that. Two things
+    # depend on it, both verified by mutating them away and watching a test
+    # fail:
+    #
+    #   * Ordering. A dependent leftovers row must be deleted before the cook
+    #     row it references, or SQLite raises "FOREIGN KEY constraint failed"
+    #     -- the very error this fix exists to remove, from the other
+    #     direction. The `source_meal`/`leftovers` relationship pair in
+    #     models.py is what lets the unit of work sort the two.
+    #   * Reach. That pair's "all" cascade also collects a leftovers row this
+    #     query cannot see: one whose own `recipe_id` differs from its
+    #     source's. A bulk statement, which skips the cascade, leaves it
+    #     pointing at a deleted row. The shape is unreachable through the API
+    #     today (`_validate_leftovers` requires the two recipes to match, and
+    #     `update_meal` refuses to re-point a cook meal that has leftovers),
+    #     so this is only belt and braces -- but free ones.
+    finished = session.exec(
+        select(PlannedMeal)
+        .join(MealPlan, PlannedMeal.plan_id == MealPlan.id)
+        .where(PlannedMeal.recipe_id == recipe_id)
+        .where(MealPlan.status == PlanStatus.DONE)
+    ).all()
+    for meal in finished:
+        session.delete(meal)
     session.delete(recipe)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
