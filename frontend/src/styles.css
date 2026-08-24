@@ -72,10 +72,11 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9em; }
 
 .grid { table-layout: fixed; }
 .grid th { text-transform: capitalize; }
-.grid__cell { vertical-align: top; height: 92px; position: relative; }
-.grid__add { width: 100%; border-style: dashed; color: var(--muted); }
+.grid__cell { vertical-align: top; min-height: 92px; height: auto; position: relative; padding: 6px; }
+.grid__meals { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.grid__add { width: 100%; border-style: dashed; color: var(--muted); padding: 4px; }
 
-.meal { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; }
+.meal { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; border: 1px solid var(--border); padding: 6px 8px; border-radius: 6px; background: var(--surface); }
 .meal--leftovers { opacity: 0.75; }
 .meal__servings { display: flex; gap: 4px; align-items: center; color: var(--muted); }
 .meal__servings input { width: 54px; }

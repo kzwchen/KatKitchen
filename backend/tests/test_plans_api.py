@@ -71,11 +71,50 @@ def test_cook_meal_defaults_servings_eaten_to_household_size(client, plan, chili
     assert meal["servings_eaten"] == 3
 
 
-def test_a_slot_can_hold_only_one_meal(client, plan, chili):
-    add_meal(client, plan["id"], recipe_id=chili["id"])
-    response = add_meal(client, plan["id"], recipe_id=chili["id"])
-    assert response.status_code == 409
-    assert response.json()["code"] == "slot_taken"
+def test_a_slot_can_hold_multiple_meals(client, plan, chili, onion):
+    soup = client.post(
+        "/api/recipes",
+        json={
+            "name": "Soup",
+            "serves": 2,
+            "instructions": "Boil.",
+            "lines": [
+                {"ingredient_id": onion["id"], "quantity": 1, "display_unit": "count"}
+            ],
+        },
+    ).json()
+    res1 = add_meal(client, plan["id"], day=0, slot="dinner", recipe_id=chili["id"])
+    res2 = add_meal(client, plan["id"], day=0, slot="dinner", recipe_id=soup["id"])
+    assert res1.status_code == 201
+    assert res2.status_code == 201
+
+    meals = client.get(f"/api/plans/{plan['id']}").json()["meals"]
+    dinner_meals = [m for m in meals if m["day"] == 0 and m["slot"] == "dinner"]
+    assert len(dinner_meals) == 2
+    assert {m["recipe_id"] for m in dinner_meals} == {chili["id"], soup["id"]}
+
+
+def test_deleting_one_meal_from_multi_meal_slot_leaves_others_intact(client, plan, chili, onion):
+    soup = client.post(
+        "/api/recipes",
+        json={
+            "name": "Soup",
+            "serves": 2,
+            "instructions": "Boil.",
+            "lines": [
+                {"ingredient_id": onion["id"], "quantity": 1, "display_unit": "count"}
+            ],
+        },
+    ).json()
+    m1 = add_meal(client, plan["id"], day=0, slot="dinner", recipe_id=chili["id"]).json()
+    m2 = add_meal(client, plan["id"], day=0, slot="dinner", recipe_id=soup["id"]).json()
+
+    del_res = client.delete(f"/api/meals/{m1['id']}")
+    assert del_res.status_code == 204
+
+    meals = client.get(f"/api/plans/{plan['id']}").json()["meals"]
+    assert len(meals) == 1
+    assert meals[0]["id"] == m2["id"]
 
 
 def test_leftovers_must_reference_a_source(client, plan, chili):

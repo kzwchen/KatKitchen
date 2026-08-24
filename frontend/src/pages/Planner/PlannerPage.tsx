@@ -123,8 +123,8 @@ export function PlannerPage() {
     )
   }
 
-  const mealAt = (day: number, slot: MealSlot): Meal | undefined =>
-    plan.meals.find((meal) => meal.day === day && meal.slot === slot)
+  const mealsAt = (day: number, slot: MealSlot): Meal[] =>
+    plan.meals.filter((meal) => meal.day === day && meal.slot === slot)
   const warningFor = (mealId: number) => plan.warnings.find((w) => w.meal_id === mealId)
 
   return (
@@ -177,45 +177,50 @@ export function PlannerPage() {
             <tr key={slot}>
               <th scope="row">{slot}</th>
               {DAY_NAMES.map((_, day) => {
-                const meal = mealAt(day, slot)
+                const meals = mealsAt(day, slot)
                 const isOpen = openSlot?.day === day && openSlot.slot === slot
                 return (
                   <td key={day} className="grid__cell">
-                    {meal ? (
-                      <div className={`meal meal--${meal.kind}`}>
-                        <strong>{meal.recipe_name}</strong>
-                        {meal.kind === 'cook' ? (
-                          <label className="meal__servings">
-                            makes
-                            <ServingsInput
-                              meal={meal}
-                              label={`Servings for ${meal.recipe_name} on ${DAY_NAMES[day]} ${slot}`}
-                              onCommit={(servingsToMake) =>
-                                run(
-                                  editMeal.mutateAsync({
-                                    mealId: meal.id,
-                                    body: { servings_to_make: servingsToMake },
-                                  }),
-                                )
-                              }
-                            />
-                          </label>
-                        ) : (
-                          <span className="muted">leftovers</span>
-                        )}
-                        {warningFor(meal.id) && (
-                          <span className="badge--warn" title={warningFor(meal.id)!.message}>
-                            ⚠ short
-                          </span>
-                        )}
-                        <button
-                          className="link"
-                          onClick={() => run(removeMeal.mutateAsync(meal.id))}
-                        >
-                          remove
-                        </button>
+                    {meals.length > 0 && (
+                      <div className="grid__meals">
+                        {meals.map((meal) => (
+                          <div key={meal.id} className={`meal meal--${meal.kind}`}>
+                            <strong>{meal.recipe_name}</strong>
+                            {meal.kind === 'cook' ? (
+                              <label className="meal__servings">
+                                makes
+                                <ServingsInput
+                                  meal={meal}
+                                  label={`Servings for ${meal.recipe_name} on ${DAY_NAMES[day]} ${slot}`}
+                                  onCommit={(servingsToMake) =>
+                                    run(
+                                      editMeal.mutateAsync({
+                                        mealId: meal.id,
+                                        body: { servings_to_make: servingsToMake },
+                                      }),
+                                    )
+                                  }
+                                />
+                              </label>
+                            ) : (
+                              <span className="muted">leftovers</span>
+                            )}
+                            {warningFor(meal.id) && (
+                              <span className="badge--warn" title={warningFor(meal.id)!.message}>
+                                ⚠ short
+                              </span>
+                            )}
+                            <button
+                              className="link"
+                              onClick={() => run(removeMeal.mutateAsync(meal.id))}
+                            >
+                              remove
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ) : isOpen ? (
+                    )}
+                    {isOpen ? (
                       <SlotPicker
                         day={day}
                         slot={slot}
@@ -239,7 +244,11 @@ export function PlannerPage() {
                         }}
                       />
                     ) : (
-                      <button className="grid__add" onClick={() => setOpenSlot({ day, slot })}>
+                      <button
+                        className="grid__add"
+                        aria-label={`Add recipe to ${DAY_NAMES[day]} ${slot}`}
+                        onClick={() => setOpenSlot({ day, slot })}
+                      >
                         +
                       </button>
                     )}

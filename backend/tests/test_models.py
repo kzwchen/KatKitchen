@@ -88,27 +88,45 @@ def test_recipe_round_trips_with_its_lines(session):
     assert loaded.lines[0].prep_note == "diced"
 
 
-def test_one_meal_per_slot(session):
-    recipe = Recipe(name="Chili", serves=4)
+def test_multiple_meals_per_slot(session):
+    chili = Recipe(name="Chili", serves=4)
+    soup = Recipe(name="Soup", serves=2)
     plan = MealPlan(week_start=date(2026, 8, 17))
-    session.add(recipe)
+    session.add(chili)
+    session.add(soup)
     session.add(plan)
     session.commit()
 
-    for _ in range(2):
-        session.add(
-            PlannedMeal(
-                plan_id=plan.id,
-                day=0,
-                slot=MealSlot.DINNER,
-                recipe_id=recipe.id,
-                kind=MealKind.COOK,
-                servings_to_make=4,
-                servings_eaten=2,
-            )
-        )
-    with pytest.raises(IntegrityError):
-        session.commit()
+    meal1 = PlannedMeal(
+        plan_id=plan.id,
+        day=0,
+        slot=MealSlot.DINNER,
+        recipe_id=chili.id,
+        kind=MealKind.COOK,
+        servings_to_make=4,
+        servings_eaten=2,
+    )
+    meal2 = PlannedMeal(
+        plan_id=plan.id,
+        day=0,
+        slot=MealSlot.DINNER,
+        recipe_id=soup.id,
+        kind=MealKind.COOK,
+        servings_to_make=2,
+        servings_eaten=2,
+    )
+    session.add(meal1)
+    session.add(meal2)
+    session.commit()
+
+    meals = session.exec(
+        select(PlannedMeal)
+        .where(PlannedMeal.plan_id == plan.id)
+        .where(PlannedMeal.day == 0)
+        .where(PlannedMeal.slot == MealSlot.DINNER)
+    ).all()
+    assert len(meals) == 2
+    assert {m.recipe_id for m in meals} == {chili.id, soup.id}
 
 
 def test_week_start_is_unique(session):

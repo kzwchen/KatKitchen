@@ -152,8 +152,6 @@ class MealPlan(SQLModel, table=True):
 
 
 class PlannedMeal(SQLModel, table=True):
-    __table_args__ = (UniqueConstraint("plan_id", "day", "slot", name="uq_plan_slot"),)
-
     id: Optional[int] = Field(default=None, primary_key=True)
     plan_id: int = Field(foreign_key="mealplan.id", index=True)
     day: int = Field(ge=0, le=6)

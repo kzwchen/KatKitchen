@@ -114,7 +114,7 @@ def _warnings(meals: list[PlannedMeal]) -> list[SlotWarning]:
 
 
 def _plan_out(session: Session, plan: MealPlan) -> PlanOut:
-    meals = sorted(plan.meals, key=lambda m: slot_index(m.day, m.slot))
+    meals = sorted(plan.meals, key=lambda m: (slot_index(m.day, m.slot), m.id or 0))
     return PlanOut(
         id=plan.id,
         week_start=plan.week_start,
@@ -216,17 +216,6 @@ def add_meal(
 ) -> MealOut:
     plan = _plan_or_404(session, plan_id)
     recipe = _recipe_or_422(session, payload.recipe_id)
-
-    taken = session.exec(
-        select(PlannedMeal)
-        .where(PlannedMeal.plan_id == plan_id)
-        .where(PlannedMeal.day == payload.day)
-        .where(PlannedMeal.slot == payload.slot)
-    ).first()
-    if taken is not None:
-        raise AppError(
-            409, "slot_taken", f"Day {payload.day} {payload.slot.value} already has a meal"
-        )
 
     if payload.kind is MealKind.LEFTOVERS:
         _validate_leftovers(

@@ -146,4 +146,27 @@ describe('PlannerPage servings input', () => {
     expect(patches).toHaveLength(0)
     expect(input).toHaveValue(4)
   })
+
+  it('renders multiple meals in the same slot and allows adding more', async () => {
+    const secondMeal = {
+      id: 6,
+      day: 0,
+      slot: 'dinner',
+      recipe_id: 11,
+      recipe_name: 'Soup',
+      recipe_serves: 2,
+      kind: 'cook',
+      servings_to_make: 2,
+      servings_eaten: 2,
+      source_meal_id: null,
+    }
+    plan = { ...PLAN_SUMMARY, meals: [COOK_MEAL, secondMeal], warnings: [] }
+    renderPlanner()
+
+    expect(await screen.findByText('Chili')).toBeInTheDocument()
+    expect(await screen.findByText('Soup')).toBeInTheDocument()
+    expect(screen.getByLabelText(/servings for chili on mon dinner/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/servings for soup on mon dinner/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Add recipe to Mon dinner')).toBeInTheDocument()
+  })
 })
